@@ -1,0 +1,11 @@
+domain bsqt.homeip.net
+dnsmaster trestler.bsqt.homeip.net
+dnskeyuser ndwatch_update. 
+dnskey 3wer601nfr2rf0fsdlgssw==
+host activity 00:0f:ff:ff:03:00
+host alu e0:cb:4e:07:a5:86
+alias alu e0:cb:4e:07:a5:86 ::6
+host basquette 8c:89:a5:34:ac:13
+host charipod 70:56:81:27:10:6f
+host charn3ds e8:3e:b6:15:d6:16
+host debvm 52:54:00:f8:b5:26

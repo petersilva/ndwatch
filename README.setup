@@ -1,0 +1,29 @@
+
+dependencies:
+
+on ubuntu 12.04 or Debian 7.1:
+
+python < 3 
+
+apt-get install python-pcapy python-dpkt python-dnspython
+
+mkdir /etc/ndwatch/
+cp ndwatch.conf.sample /etc/ndwatch/ndwatch.conf
+
+You need to have a working IPv6 network, and a router needs to be
+sending advertisements out.  The daemon reads those.
+
+vi /etc/ndwatch/ndwatch.conf
+
+<set your domain.>
+<setup your bind9 for dynamic updates.>
+	-- obtain user name and key 
+put that in this file.
+
+If you assign addresses to machines via dhcp, then bring
+that information over into host declarations.
+
+python ndwatch.py >watch.out 2>&1 &
+
+Start up the daemon, and it should create reverse records for 
+known MACs that point to the same server.
