@@ -73,23 +73,29 @@ def mac2host(fname):
     m2hf.close()
     return( macmap, dddomain, dnsmaster, dnskeyuser, dnskey )
 
-def dns_fwd_addr(fqdn):
+def dns_fwd_addr(fqdn,dns_server):
     """
     return all addresses resolvable host fully qualified domain name 
     """
 
     ret = []
+    resolver = dns.resolver.Resolver()
+    resolver.nameservers = dns_server
+
     try:
-        answers=dns.resolver.query(fqdn,'AAAA')
+        answers= resolver.query(fqdn,'AAAA')
         ret = list(set( map( lambda x: x.to_text(), answers )))
 
-    except dns.resolver.NXDOMAIN:
+    except:
+        #except dns.resolver.NXDOMAIN:
         ret = []
 	pass
 
-    except Exception as ex:
-	print "DNS lookup of %s failed: %s" % ( fqdn, str(ex) )
-	exit(1)
+    # FIXME: would like to be more specific about exeptions, but
+    #  had to get rid of just catching NXDOMAIN, because was returning blank exceptions.
+    #except Exception as ex:
+    #	print "DNS lookup of %s failed: %s" % ( fqdn, str(ex) )
+    #	exit(1)
 
     return(ret)
 
@@ -134,7 +140,7 @@ class neighborhood_watch:
         else:
             p = pcapy.open_offline(self.options['offline'])
 
-	print "p.loop"
+	#print "p.loop"
         p.loop(-1, self.handle_packet)
  
     def save_neighbor_advertisement_timestamp(self, addr, mac ):
@@ -188,7 +194,7 @@ class neighborhood_watch:
       fqdn= "%s.%s." % ( host, self.domain)
       print "DNS check %s address to: %s" % ( fqdn, addr )
   
-      if not ( addr in dns_fwd_addr(fqdn) ):
+      if not ( addr in dns_fwd_addr(fqdn,self.dnsmaster) ):
           update = dns.update.Update( self.domain, keyring=self.dnskeyring )
           update.replace( host, 300, 'aaaa', addr )
           response = dns.query.tcp(update,self.dnsmaster)
