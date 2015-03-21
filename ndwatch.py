@@ -117,12 +117,16 @@ def dns_rev_host(addr):
 verbose = False
 
 def msgd(str):
-    syslog.syslog( syslog.LOG_DEBUG, str )
     if verbose:
+        syslog.syslog( syslog.LOG_DEBUG, str )
         print 'debug: ' + str
 
 def msge(str):
     syslog.syslog( syslog.LOG_ERR, str )
+    print 'error: ' +  str
+
+def msgi(str):
+    syslog.syslog( syslog.LOG_INFO, str )
     print 'error: ' +  str
 
 class neighborhood_watch:
@@ -186,7 +190,7 @@ class neighborhood_watch:
 2607:fa48:6e5e:5510:451c:fa2a:d259:32a4 dev eth0 lladdr bc:f5:ac:f4:93:c9 STALE
 
 	"""
-        msgd( "priming maps by checking neighbor table" )
+        msgi( "priming maps by checking neighbor table" )
         p=subprocess.Popen( [ "ip", "-6", "neigh" ], stdout=subprocess.PIPE )
         for line in p.stdout:
             l=line.split()
@@ -214,6 +218,9 @@ class neighborhood_watch:
     def dns_clean_old( self, threshold ):
         """
   
+        FIXME: this might be completely busted.... 
+		-- since adding suffix, do not know how this is takin into account.
+
         Issue DNS updates to remove address records which have not been updated since threshold.
         threshold is a gmt time in seconds (as returned by time.now() )
   
@@ -361,7 +368,7 @@ class neighborhood_watch:
           prefix="%s:/%d" % ( net, prefixlen )
   
           if prefix not in self.prefixes :
-              msgd( "RA: prefix=%s" % prefix )
+              msgi( "New router advertisement prefix received: %s" % prefix )
               self.prefixes.append(prefix)
               self.prefix=prefix
   
@@ -387,7 +394,7 @@ class neighborhood_watch:
                 self.handle_neighbor_advertisement( icmp )    
 	        if not self.primed:
                     self.prime()
-                    msgd("setup complete")
+                    msgi("Setup complete. now just listening...")
   
 from optparse import OptionParser
   
@@ -405,9 +412,6 @@ def MainParseOptions():
                     help="config file location.")
      parser.add_option("-i", "--interface", dest="interface",
                     help="list on interface", metavar="INTERFACE")
-     parser.add_option("-m", "--mac", dest="mac",
-                    help="manually add dns records for given mac and IP", 
-                    metavar="OFFLINE")
      parser.add_option("-o", "--offline", dest="offline",
                     help="read given packet capture file instead of interface", 
                     metavar="OFFLINE")
@@ -423,6 +427,7 @@ def MainParseOptions():
   
 def main():
       ( opt, arg ) = MainParseOptions()
+      msgi("Setup starting.")
       neighborhood_watch(opt,arg).start()
    
 if __name__=="__main__":
