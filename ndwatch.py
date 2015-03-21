@@ -4,7 +4,7 @@
   neighborhood watch
 
 Listen for IPv6 neighbor discovery protocol for router and neigbour advertisements.
-Read a configuration file ( /etc/ndwatch.conf ) for a list of relationships between
+Read a configuration file ( /etc/ndwatch/ndwatch.conf ) for a list of relationships between
 MAC addresses and host names.
 
 When a given MAC advertises an address, create a reverse lookup (PTR) record 
@@ -29,6 +29,8 @@ import dns.update
 import dns.query
 import dns.reversename
 import dns.resolver
+import subprocess
+import syslog
 
 # for ipv62str
 import struct
@@ -109,8 +111,19 @@ def dns_rev_host(addr):
        return('AddrNotFound')
 
    except Exception as ex:
-	print "DNS lookup of %s failed: %s" % ( addr, str(ex) )
+	msge( "DNS lookup of %s failed: %s" % ( addr, str(ex) ) )
 	exit(1)
+
+verbose = False
+
+def msgd(str):
+    syslog.syslog( syslog.LOG_DEBUG, str )
+    if verbose:
+        print 'debug: ' + str
+
+def msge(str):
+    syslog.syslog( syslog.LOG_ERR, str )
+    print 'error: ' +  str
 
 class neighborhood_watch:
 
@@ -121,12 +134,19 @@ class neighborhood_watch:
         ( self.mac2hostmap, self.domain, self.dnsmaster, dnskeyuser, dnskey ) = mac2host(cfg)
         self.arguments = args
         self.prefixes = []
+	self.suffix = self.options["suffix"] 
         self.dnskeyring = dns.tsigkeyring.from_text({ dnskeyuser : dnskey })
-        self.temp_record = shelve.open(self.options["etc"] + "temp_record.shlf")
+        self.temp_record = shelve.open(self.options["etc"] + "/temp_record.shlf")
+	self.verbose = self.options["verbose"]
+
+        if self.options["verbose"]:
+            verbose=True
+              
+	self.primed = False
      
-        #print "opts: ", self.options
-        #print "self.options['offline']", str(self.options['offline'])
-        #print "in netmon, domain set to", self.domain
+        msgd( "opts: %s " % self.options )
+        msgd( "self.options['offline']=%s" % str(self.options['offline']) )
+        msgd( "in ndwatch, domain set to %s" % self.domain )
         #print "dnskeyring=", self.dnskeyring
       
   
@@ -147,12 +167,49 @@ class neighborhood_watch:
         """
         store the time of the last adverstisement for a given address.
         on persistent storage.
-        """
 
-        # FIXME: find ff:fe (permanent addresses, ) and skip them (their permanent!)
-        print "FIXME: not checking whether addr is temporary or not"
+        Should we find ff:fe (permanent addresses, ) and skip them (they are permanent!)
+             otoh, so what? still want to know what machine it is... 
+	     register them with the suffix?
+               
+        """
+        #print "FIXME: not checking whether addr is temporary or not"
         self.temp_record[ addr ] = ( int(time.time()), mac )
         self.temp_record.sync()
+
+    def prime(self):
+	""" 
+        read known addresses from ip -6 neigh, check for known macs, and register them.
+
+2607:fa48:6e5e:5510:d589:ca42:e926:cc47 dev eth0 lladdr 10:68:3f:71:fd:c3 REACHABLE
+2607:fa48:6e5e:5510:16b:273c:4d78:d863 dev eth0  FAILED
+2607:fa48:6e5e:5510:451c:fa2a:d259:32a4 dev eth0 lladdr bc:f5:ac:f4:93:c9 STALE
+
+	"""
+        msgd( "priming maps by checking neighbor table" )
+        p=subprocess.Popen( [ "ip", "-6", "neigh" ], stdout=subprocess.PIPE )
+        for line in p.stdout:
+            l=line.split()
+            if len(l) <= 4:  # no mac available.
+		continue
+
+            addr=l[0]
+            b = addr.split(':')
+
+	    if b[0] == 'fe80' : # skip link local addresses.
+		continue
+
+            mac=l[4]
+            if mac in self.mac2hostmap.keys():
+                host = self.mac2hostmap[ mac ]
+            else:
+                host = "UNKNOWN-%s" % re.sub( r':','-',mac)
+
+            msgd( "dnsupdate( %s, %s, %s )" % ( host, mac, addr) )
+            self.dnsupdates( host, mac, addr )
+       
+        self.primed=True
+        return
 
     def dns_clean_old( self, threshold ):
         """
@@ -166,9 +223,9 @@ class neighborhood_watch:
         rzone="%s.ip6.arpa." % zone[-(pfx/2)+1:]
   
         for addr in self.temp_record.keys():
-          print "addr=%s, mac=%s, last seen: %s" % ( addr , \
-              self.temp_record[ addr ][1], \
-              time.asctime(time.localtime(self.temp_record[ addr ][0])) )
+          msgd( "addr=%s, mac=%s, last seen: %s" % ( addr , \
+                  self.temp_record[ addr ][1], \
+                  time.asctime(time.localtime(self.temp_record[ addr ][0])) ) )
   
           if ( time.time()-threshold > (self.temp_record[ addr ][0]) ):
               update = dns.update.Update( rzone, keyring=self.dnskeyring )
@@ -177,10 +234,10 @@ class neighborhood_watch:
               update.delete( raddr, 'ptr', fqdn )
               response = dns.query.tcp(update,self.dnsmaster)
               if response.rcode() != 0:
-                  print "removal of reverse registration of %s failed" % addr
-                  print response
+                  msge( "removal of reverse registration of %s failed" % addr )
+                  msge( response )
               else:
-                  print "removal of reverse registration of %s succeeded" % addr
+                  msgd( "removal of reverse registration of %s succeeded" % addr )
                   del self.temp_record[ addr ]
               
         self.temp_record.sync()
@@ -191,21 +248,31 @@ class neighborhood_watch:
           determine and run needed DNS updates.
       """
   
-      fqdn= "%s.%s." % ( host, self.domain)
-      print "DNS check %s address to: %s" % ( fqdn, addr )
+      host_s= "%s-%s" % ( host, self.suffix )
+      fqdn= "%s.%s" % ( host_s, self.domain)
+      msgd( "DNS check mac: %s asking for: %s" % ( mac, addr ) )
+
+      addr_si = dns_rev_host(addr)
   
-      if not ( addr in dns_fwd_addr(fqdn,self.dnsmaster) ):
+      if ( addr_si != 'AddrNotFound' ) : # address already known.
+           msgd( "mac: %s asking for %s, rev is already %s" % ( mac, addr, addr_si ) )
+           return
+
+      if ( addr in dns_fwd_addr( "%s.%s" % (host, self.domain) , self.dnsmaster)) :
+           msgd( "mac: %s asking for %s, which it already has." % ( mac, host, addr ) )
+           return
+
+      if not ( addr in dns_fwd_addr(fqdn,self.dnsmaster) ) :
           update = dns.update.Update( self.domain, keyring=self.dnskeyring )
-          update.replace( host, 300, 'aaaa', addr )
+          update.add( host_s, 300, 'aaaa', addr )
           response = dns.query.tcp(update,self.dnsmaster)
           if response.rcode() != 0:
-              print "forward registration of %s failed" % host
-              print response
+              msge( "forward registration of %s failed" % host )
+              msge( response )
           else:
-              print "fwd of %s registration succeeded" % host
+              msgd( "fwd of %s for mac: %s as %s succeeded" % ( host_s, mac, addr ) )
       else:
-          print "skipped fwd of %s, already in DNS OK" % host
-  
+          msgd( "skipped fwd of %s for %s, already in DNS OK" % ( host_s, mac ) )
   
       # fwd done, now check reverse...
   
@@ -214,38 +281,21 @@ class neighborhood_watch:
       pfx= int(self.prefix[-2:])
       rzone="%s.ip6.arpa." % zone[-(pfx/2)+1:]
   
-      addr_si = dns_rev_host(addr)
-  
-      if addr_si == 'AddrNotFound':
-          print "DNS Add rev %s -> %s" % ( addr, fqdn )
-          update = dns.update.Update( rzone, keyring=self.dnskeyring )
+      msgd( "mac: %s DNS Add rev %s -> %s" % ( mac, addr, fqdn ) )
+
+      update = dns.update.Update( rzone, keyring=self.dnskeyring )
       
-          update.replace( dns.reversename.from_address(addr), 300, 'ptr', fqdn )
-          response = dns.query.tcp(update,self.dnsmaster)
-          if response.rcode() != 0:
-              print "reverse initial registration of %s failed" % host
-              print response
-          else:
-              print "rev registration of %s succeeded" % host
-  
+      update.add( dns.reversename.from_address(addr), 300, 'ptr', fqdn )
+      response = dns.query.tcp(update,self.dnsmaster)
+      if response.rcode() != 0:
+          msge( "reverse registration of %s failed" % host )
+          msge( response )
       else:
-          if addr_si[-1] != '.':
-              addr_si += '.'
-  
-          if addr_si != fqdn :
-              update2 = dns.update.Update( rzone, keyring=self.dnskeyring )
-              update2.replace( dns.reversename.from_address(addr), 300, 'ptr', "%s.%s." % (host, self.domain) )
-              response = dns.query.tcp(update2,self.dnsmaster)
-              if response.rcode() != 0:
-                  print "reverse update registration of %s failed" % host
-                  print response
-              else:
-                  print "rev update registration of %s succeeded" % host
-  
-          else:
-              print "skipped rev of %s, already in DNS OK" % host
+          msgd( "rev registration of %s-%s succeeded" % ( host, self.suffix ))
   
       return
+
+
 
   
     def handle_neighbor_advertisement(self, icmp):
@@ -271,7 +321,7 @@ class neighborhood_watch:
           oplen = ord(icmp.data[25])
   
           if optype > 5 :
-              print "malformed advert"
+              msge( "malformed advert" )
           elif ((optype == 1) or (optype==2)):
               mac =  hexdump(icmp.data[26:])
   
@@ -311,7 +361,7 @@ class neighborhood_watch:
           prefix="%s:/%d" % ( net, prefixlen )
   
           if prefix not in self.prefixes :
-              print "RA: prefix=%s" % prefix
+              msgd( "RA: prefix=%s" % prefix )
               self.prefixes.append(prefix)
               self.prefix=prefix
   
@@ -335,6 +385,9 @@ class neighborhood_watch:
                 exit()
             elif icmp.type == dpkt.icmp6.ND_NEIGHBOR_ADVERT:
                 self.handle_neighbor_advertisement( icmp )    
+	        if not self.primed:
+                    self.prime()
+                    msgd("setup complete")
   
 from optparse import OptionParser
   
@@ -352,12 +405,18 @@ def MainParseOptions():
                     help="config file location.")
      parser.add_option("-i", "--interface", dest="interface",
                     help="list on interface", metavar="INTERFACE")
+     parser.add_option("-m", "--mac", dest="mac",
+                    help="manually add dns records for given mac and IP", 
+                    metavar="OFFLINE")
      parser.add_option("-o", "--offline", dest="offline",
                     help="read given packet capture file instead of interface", 
                     metavar="OFFLINE")
      parser.add_option("-q", "--quiet",
                     action="store_false", dest="verbose", default=True,
                     help="don't print status messages to stdout")
+     parser.add_option("-s", "--suffix", action="store_true", 
+                    dest="suffix", default="anon",
+                    help="suffix to add to fqdn for temporary addresses.")
   
      return( parser.parse_args() )
   
