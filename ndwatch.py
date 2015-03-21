@@ -277,7 +277,7 @@ class neighborhood_watch:
               msge( "forward registration of %s failed" % host )
               msge( response )
           else:
-              msgd( "fwd of %s for mac: %s as %s succeeded" % ( host_s, mac, addr ) )
+              msgi( "fwd of %s for mac: %s as %s succeeded" % ( host_s, mac, addr ) )
       else:
           msgd( "skipped fwd of %s for %s, already in DNS OK" % ( host_s, mac ) )
   
@@ -298,7 +298,7 @@ class neighborhood_watch:
           msge( "reverse registration of %s failed" % host )
           msge( response )
       else:
-          msgd( "rev registration of %s-%s succeeded" % ( host, self.suffix ))
+          msgi( "rev registration of %s-%s succeeded" % ( host, self.suffix ))
   
       return
 
