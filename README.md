@@ -14,9 +14,9 @@ what is plugged in, and "their" stuff has to work, then this is a reasonably uno
 have an idea what is being used.
 
 It is good practice to statically assign addresses to things on the network so that when you use
-tools like iftop, or netstat, you have some idea why given exchanges are taking place.  
-Used in conjunction with iftop, you will be able to identify which devices are active, and if 
-their MAC's are unknown, you can at least ask a few questions to add them to the known list eventually.
+tools like iftop, or netstat, you have some idea why given exchanges are taking place.  You will 
+be able to identify which devices are active, and if their MAC's are unknown, you can at least 
+ask a few questions such as via nmap, to add them to the known list.  It allows building an network inventory.
 
 # Why is this a problem?
 
@@ -120,3 +120,6 @@ known MACs that point to the same server.   there is also a sample init script a
 # Caveats:
  - added records, but cleanup of old ones is incomplete. not a problem if used in conjunction with si46ib9d
    which re-writes the entire db every time there is a change to permanent addresses.
+ - did not bother tracking why, but it crashes after some undefined period of time.  you need to install 
+   the cronjob to restart it.  the cronjob checks every hour and restarts if it has died.  Since the neighbor
+   table is still good within an hour or two, no addresses should be missed.
