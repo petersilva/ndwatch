@@ -1,0 +1,54 @@
+
+. /etc/default/ndwatch
+
+
+PID="`ps xl | grep python | grep nd | awk '{ print $3; };'`"
+
+do_start() {
+    nohup python /etc/ndwatch/ndwatch.py $OPTIONS -i $INTERFACE >/dev/null 2>&1 &
+}
+
+do_stop() {
+  if [ "$PID" ]; then
+	kill $PID
+  fi
+}
+    
+do_status() {
+  PID="`ps xl | grep python | grep nd | awk '{ print $3; };'`"
+  if [ "$PID" ]; then 
+        echo "ndwatch running as pid: $PID"
+  else
+	echo "ndwatch not running"
+  fi
+}
+
+
+do_check() {
+
+  if [ ! "$PID" ]; then
+       do_start
+  else
+        echo "already running pid: $PID"
+  fi
+}
+
+do_restart() {
+   stop
+   wait 5
+   start
+}
+
+case "$1" in
+   start) do_start ;;
+   stop) do_stop ;;
+   status) do_status ;;
+   restart) do_restart ;;
+   check) do_check ;;
+   *)
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart|check}" >&2
+	echo "                      check - starts if not running " >&2
+        exit 3
+	;;
+esac
+
