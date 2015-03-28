@@ -1,10 +1,22 @@
 What is NDWatch for?
 ====================
 
-In geekspeak: The Neighborhood Discovery Watch daemon maps global scope temporary IPv6 addresses to 
-names in local DNS databases, so that in tools like iftop, nmap, netstat, etc...
+The Neighborhood Discovery Watch daemon maps global scope temporary IPv6 addresses to 
+recognizable names in local DNS databases, so that in tools like iftop, nmap, netstat, etc...
 hostnames are shown even when machines instead of a sea of temporary addresses. The daemon
 logs its actions to syslog, so that records can be maintained for long term maintenance.
+
+If you are using Active Directory on a corporate network, and only PC's that join the domain 
+properly are in use, then this daemon is not useful to you.  If your network has many different 
+operating systems on it (mac, linux, android, ios) that do not necessarily get plugged in by
+admins (little physical security) and you need to inventory things to help you get a handle on
+what is plugged in, and "their" stuff has to work, then this is a reasonably unobtrusive way to
+have an idea what is being used.
+
+It is good practice to statically assign addresses to things on the network so that when you use
+tools like iftop, or netstat, you have some idea why given exchanges are taking place.  
+Used in conjunction with iftop, you will be able to identify which devices are active, and if 
+their MAC's are unknown, you can at least ask a few questions to add them to the known list eventually.
 
 # Why is this a problem?
 
@@ -34,6 +46,7 @@ the names claimed into forward and reverse DNS records for the
 domain and subnet.
 
 # Security Considerations:
+The purpose here is to understand your own network, not let your users be tracked by others.
 While there is nothing to force it, it is assumed that DNS is split-horizon 
 and that the zones updated are only internally visible, as sharing the temporary addresses
 publically may allow others to track end-point device use on your network.
