@@ -218,19 +218,19 @@ class neighborhood_watch:
     def dns_clean_old( self, threshold ):
         """
   
-        FIXME: this might be completely busted.... 
-		-- since adding suffix, do not know how this is takin into account.
-
         Issue DNS updates to remove address records which have not been updated since threshold.
         threshold is a gmt time in seconds (as returned by time.now() )
+
+	FIXME: only removes reverse, not fwd.
   
         """
         zone = str(dns.reversename.from_address( self.prefix[0:-4] ))[0:63]
         pfx= int(self.prefix[-2:])
         rzone="%s.ip6.arpa." % zone[-(pfx/2)+1:]
+        msgi("dns_clean cycle: ageing threshold: %s seconds " % threshold )
   
         for addr in self.temp_record.keys():
-          msgd( "addr=%s, mac=%s, last seen: %s" % ( addr , \
+          msgi( "addr=%s, mac=%s, last seen: %s" % ( addr , \
                   self.temp_record[ addr ][1], \
                   time.asctime(time.localtime(self.temp_record[ addr ][0])) ) )
   
@@ -244,7 +244,7 @@ class neighborhood_watch:
                   msge( "removal of reverse registration of %s failed" % addr )
                   msge( response )
               else:
-                  msgd( "removal of reverse registration of %s succeeded" % addr )
+                  msgi( "removal of reverse registration of %s succeeded" % addr )
                   del self.temp_record[ addr ]
               
         self.temp_record.sync()
