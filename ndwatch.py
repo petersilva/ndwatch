@@ -61,7 +61,7 @@ def mac2host(fname):
         if len(ll) < 1 :
             pass
         elif ll[0] == 'host' :
-            macmap[ll[2]] = ll[1]
+            macmap[ll[2].lower()] = ll[1]
         elif ll[0] == 'domain':
             dddomain = ll[1]
         elif ll[0] == 'dnsmaster':
@@ -203,7 +203,7 @@ class neighborhood_watch:
 	    if b[0] == 'fe80' : # skip link local addresses.
 		continue
 
-            mac=l[4]
+            mac=l[4].lower()
             if mac in self.mac2hostmap.keys():
                 host = self.mac2hostmap[ mac ]
             else:
