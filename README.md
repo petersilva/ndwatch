@@ -1,17 +1,21 @@
 What is NDWatch for?
 ====================
 
-The Neighborhood Discovery Watch daemon maps global scope temporary IPv6 addresses to 
+In geekspeak: The Neighborhood Discovery Watch daemon maps global scope temporary IPv6 addresses to 
 names in local DNS databases, so that in tools like iftop, nmap, netstat, etc...
 hostnames are shown even when machines instead of a sea of temporary addresses. The daemon
-logs its actions to syslog.
+logs its actions to syslog, so that records can be maintained for long term maintenance.
 
-# Why is this a problem:
+# Why is this a problem?
 
-Originally DHCPv6 had a number of gaps, and the implementations are evolving.
-The result is that DHCPv6 does not work reliably with a wide variety of end point devices today.
-SLAAC, originally meant to supplant DHCP on IPv6 networks, is what "just works."
+In IPv4 networks where stricter management is wanted, addresses are given out by the Dynamic Host 
+Configuration Protocol (DHCP.) In IPv6, Stateless Address AutoConfiguration (SLAAC) was originally 
+supposed to replace DHCP, but it turns out that SLAAC did not really do the same thing, so people 
+wanted DHCP back, and they started work on DHCP for IPv6 (DHCPv6.) DHCPv6 initially had a number 
+of gaps, and the implementations have been evolving to fix them.  The result is that DHCPv6 does 
+not work reliably with a wide variety of end point devices today.  SLAAC is what "just works." 
 With SLAAC, the network guesses addresses, whereas DHCP, in managed networks, they can be assigned.
+
 When using SLAAC, there are "privacy extensions" that change the addresses
 used by hosts every few hours to prevent tracking of equipment globally.  For
 local network security and management however, it is very practical to 
@@ -42,12 +46,15 @@ If an unknown end-point connects to the network, the daemon will create DNS entr
 it, so that folks can do further auditing work to identify it.
 
 # Future work:
- - not looking for people trying to use other people's IP's yet. (ie. mac/host mismatch.)
- - should we register link level addresses?
- - worry about mac spoofing?  same as nbd or arp today... don't see why.
+ - clean up of records is not fully thought out yet. things get cleaned out by si46ib9d whenever 
+   static changes made.  have dns_clean which only removes reverse addresses.  need to add fwd
+   as well.
+ - not trying to find those trying to use other devices' IP's yet. (ie. mac/host mismatch.)
+ - should link level addresses be registered?
+ - worry about mac spoofing?  same as nbd or arp today... don't see why.  if they use a different
+   MAC they will be given an UNKNOWN, but remaint identifiable by MAC, would have to rotate MACs.
  - should we identify static addresses, and register those without the suffix? avoid need
    to create any host entries in IPv6, just create them on the fly as MACs show up.  
-
 
 # Dependencies:
 
@@ -95,4 +102,8 @@ that information over into host declarations.
 python ndwatch.py >watch.out 2>&amp;1 &amp;
 
 Start up the daemon, and it should create reverse records for 
-known MACs that point to the same server.  
+known MACs that point to the same server.   there is also a sample init script and crontab entry included.
+
+# Caveats:
+ - added records, but cleanup of old ones is incomplete. not a problem if used in conjunction with si46ib9d
+   which re-writes the entire db every time there is a change to permanent addresses.
