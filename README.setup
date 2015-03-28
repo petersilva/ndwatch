@@ -1,8 +1,8 @@
 What is NDWatch for?
 
-The Neighborhood Discovery Watch daemon registers global scope temporary
-IPv6 names in local DNS databases, so that tools like iftop, nmap, netstat, etc...
-hostnames are shown even when machines use temporary addresses. the daemon
+The Neighborhood Discovery Watch daemon maps global scope temporary IPv6 addresses to 
+names in local DNS databases, so that in tools like iftop, nmap, netstat, etc...
+hostnames are shown even when machines instead of a sea of temporary addresses. The daemon
 logs its actions to syslog.
 
 Why is this a problem:
@@ -14,10 +14,6 @@ When using SLAAC, there are "privacy extensions" that change the addresses
 used by hosts every few hours to prevent tracking of equipment globally.  For
 local network security and management however, it is very practical to 
 know which end points are using which addresses, at a given time.
-
-While there is nothing to force it, it is assumed that DNS is split-horizon 
-and that the zones updated are internally visible, as sharing the temporary addresses
-publically may allow others to track end-point devices used on your network.
 
 While it is great to have the addresses mapped to human readable names, it is cumbersome
 to map them to the ordinary, permanent addresses, as this can cause problems when 
@@ -31,7 +27,11 @@ protocol messages used by end points to claim addresses, and registers
 the names claimed into forward and reverse DNS records for the 
 domain and subnet.
 
-Security:
+Security Considerations:
+While there is nothing to force it, it is assumed that DNS is split-horizon 
+and that the zones updated are only internally visible, as sharing the temporary addresses
+publically may allow others to track end-point device use on your network.
+
 Since neighborhood discovery is the same protocol used to be able to communicate 
 over IPv6 at all, the daemon should work in any network with any combination of 
 end points, and should be difficult to avoid or subvert.
@@ -45,7 +45,6 @@ Future work:
  - worry about mac spoofing?  same as nbd or arp today... don't see why.
  - should we identify static addresses, and register those without the suffix? avoid need
    to create any host entries in IPv6, just create them on the fly as MACs show up.  
-
 
 
 dependencies:
