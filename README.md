@@ -117,9 +117,16 @@ python ndwatch.py >watch.out 2>&amp;1 &amp;
 Start up the daemon, and it should create reverse records for 
 known MACs that point to the same server.   there is also a sample init script and crontab entry included.
 
+# Example:
+Once it is set up, one can refer to all hosts by their host names, and administer network
+traffic rules by applying them to all the addresses for each host.  An example of blocking
+a series of hosts is given by the block_hosts.sample.
+
 # Caveats:
  - added records, but cleanup of old ones is incomplete. not a problem if used in conjunction with si46ib9d
    which re-writes the entire db every time there is a change to permanent addresses.
  - did not bother tracking why, but it crashes after some undefined period of time.  you need to install 
    the cronjob to restart it.  the cronjob checks every hour and restarts if it has died.  Since the neighbor
    table is still good within an hour or two, no addresses should be missed.
+   actually, this might be fixed... found some link address patterns I wasn't expecting... have to see after a while.
+
