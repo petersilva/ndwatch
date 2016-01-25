@@ -117,9 +117,8 @@ def dns_rev_host(addr):
 verbose = False
 
 def msgd(str):
-    if verbose:
-        syslog.syslog( syslog.LOG_DEBUG, str )
-        print 'debug: ' + str
+    syslog.syslog( syslog.LOG_DEBUG, str )
+    print 'debug: ' + str
 
 def msge(str):
     syslog.syslog( syslog.LOG_ERR, str )
@@ -141,6 +140,11 @@ class neighborhood_watch:
 	self.suffix = self.options["suffix"] 
         self.dnskeyring = dns.tsigkeyring.from_text({ dnskeyuser : dnskey })
         self.temp_record = shelve.open(self.options["etc"] + "/temp_record.shlf")
+
+        if self.options["dump"]:
+           self.dump_neigbour_advertisement_timestamps()
+           exit()
+
 	self.verbose = self.options["verbose"]
 
         if self.options["verbose"]:
@@ -181,6 +185,13 @@ class neighborhood_watch:
         self.temp_record[ addr ] = ( int(time.time()), mac )
         self.temp_record.sync()
 
+    def dump_neigbour_advertisement_timestamps(self):
+        print( "neigbour ads: begin" )
+        for a in self.temp_record.keys():
+            print( "%s - %s" % ( a, self.temp_record[ a ] ) )
+        print( "neigbour ads: end" )
+
+
     def prime(self):
 	""" 
         read known addresses from ip -6 neigh, check for known macs, and register them.
@@ -200,7 +211,8 @@ class neighborhood_watch:
             addr=l[0]
             b = addr.split(':')
 
-	    if b[0] == 'fe80' : # skip link local addresses.
+	    if b[0] == 'fe80' or ( b[0][0] == 'f' and (b[0][1] in [ 'd', 'e', 'f' ] )):
+                msgd( "primer: skipping link-level address %s" % addr )
 		continue
 
             mac=l[4].lower()
@@ -209,7 +221,7 @@ class neighborhood_watch:
             else:
                 host = "UNKNOWN-%s" % re.sub( r':','-',mac)
 
-            msgd( "dnsupdate( %s, %s, %s )" % ( host, mac, addr) )
+            msgd( "priming call dnsupdate( %s, %s, %s )" % ( host, mac, addr) )
             self.dnsupdates( host, mac, addr )
        
         self.primed=True
@@ -270,6 +282,10 @@ class neighborhood_watch:
            return
 
       if not ( addr in dns_fwd_addr(fqdn,self.dnsmaster) ) :
+          if ( addr[0] == 'f' ) and ( addr[1] in [ 'd', 'e', 'f' ] ):
+             msgd( "ignoring link level address %s" % addr )
+             return
+
           update = dns.update.Update( self.domain, keyring=self.dnskeyring )
           update.add( host_s, 300, 'aaaa', addr )
           response = dns.query.tcp(update,self.dnsmaster)
@@ -407,6 +423,9 @@ def MainParseOptions():
      parser.add_option("-c", "--clean", action="store_true", 
                     dest="clean", default=False,
                     help="clean old addresses out.")
+     parser.add_option("-d", "--dump", action="store_true", 
+                    dest="dump", default=False,
+                    help="view stored addresses.")
      parser.add_option("-e", "--etc", action="store_true", 
                     dest="etc", default="/etc/ndwatch",
                     help="config file location.")
@@ -421,6 +440,9 @@ def MainParseOptions():
      parser.add_option("-s", "--suffix", action="store_true", 
                     dest="suffix", default="anon",
                     help="suffix to add to fqdn for temporary addresses.")
+     parser.add_option("-v", "--verbose",
+                    action="store_true", dest="verbose", default=True,
+                    help="messages to stdout")
   
      return( parser.parse_args() )
   
