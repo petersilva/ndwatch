@@ -126,7 +126,7 @@ def msge(str):
 
 def msgi(str):
     syslog.syslog( syslog.LOG_INFO, str )
-    print 'error: ' +  str
+    print 'info: ' +  str
 
 class neighborhood_watch:
 
