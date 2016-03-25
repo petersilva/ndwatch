@@ -78,6 +78,7 @@ python < 3
 apt-get install python-pcapy python-dpkt python-dnspython
 
 mkdir /etc/ndwatch/
+
 cp ndwatch.conf.sample /etc/ndwatch/ndwatch.conf
 
 You need to have a working IPv6 network, which usually means
