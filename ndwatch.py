@@ -118,15 +118,15 @@ verbose = False
 
 def msgd(str):
     syslog.syslog( syslog.LOG_DEBUG, str )
-    print 'debug: ' + str
+    print( 'debug: ' + str )
 
 def msge(str):
     syslog.syslog( syslog.LOG_ERR, str )
-    print 'error: ' +  str
+    print( 'error: ' +  str )
 
 def msgi(str):
     syslog.syslog( syslog.LOG_INFO, str )
-    print 'info: ' +  str
+    print( 'info: ' +  str )
 
 class neighborhood_watch:
 
@@ -312,7 +312,7 @@ class neighborhood_watch:
       response = dns.query.tcp(update,self.dnsmaster)
       if response.rcode() != 0:
           msge( "reverse registration of %s failed" % host )
-          msge( response )
+          #msge( response )
       else:
           msgi( "rev registration of %s-%s succeeded" % ( host, self.suffix ))
   
